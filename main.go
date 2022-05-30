@@ -12,22 +12,29 @@ import (
 
 	"github.com/joho/godotenv"
 )
-
+var protocol string
 var target string
-// var user string
-// var pass string
-var rps int
-
-var failedcalls int
-var successfulcalls int
+var port string
+var tps int
+var rpt int
 
 func initenv() {
 	var e string
 	godotenv.Load(".env")
+	if e = os.Getenv("PROTOCOL"); e != "" {
+		protocol = e
+	} else {
+		protocol = "https"
+	}
 	if e = os.Getenv("TARGET"); e != "" {
 		target = e
 	} else {
 		panic("no target, pussy")
+	}
+	if e = os.Getenv("PORT"); e != "" {
+		port = e
+	} else {
+		port = "443"
 	}
 	// if e = os.Getenv("USER"); e != "" {
 	// 	user = e
@@ -39,11 +46,17 @@ func initenv() {
 	// } else {
 	// 	panic("no pass")
 	// }
-	if e = os.Getenv("REQUESTS_PER_SECOND"); e != "" {
-		rps, _ = strconv.Atoi(e)
+	if e = os.Getenv("THREADS_PER_SECOND"); e != "" {
+		tps, _ = strconv.Atoi(e)
 	} else {
-		panic("no RPS")
+		panic("no TPS")
 	}
+	if e = os.Getenv("REQUESTS_PER_THREAD"); e != "" {
+		rpt, _ = strconv.Atoi(e)
+	} else {
+		panic("no RPT")
+	}
+	
 
 }
 
@@ -54,18 +67,17 @@ func main() {
 
 
 	client := &http.Client{}
+	targetUrl := genTarget(protocol, target, port)
 
 	statuscode := make(chan int)
-
 	successfulcalls := 0
 	failedcalls := 0
-
 	go countCalls(statuscode, &successfulcalls, &failedcalls)
+
 	secondticker := time.NewTicker(time.Second)
-	for range secondticker.C {
-		CallClear()
-		for i := 0; i < rps; i++ {
-			go call(client, "GET", "https://" + target, statuscode)
+	for range secondticker.C {		
+		for i := 0; i < tps; i++ {
+			go call(client, "GET", targetUrl, statuscode)
 		}
 		printInfos(successfulcalls, failedcalls)
 	}
@@ -79,8 +91,12 @@ func call(client *http.Client, method string, url string, statuscode chan int) {
 	req, _ := http.NewRequest(method, url, nil)
 	//req.SetBasicAuth(user, pass)
 
-	for i := 1; i <= 10; i++ {
-		resp, _ := client.Do(req)
+	for i := 1; i <= rpt; i++ {
+		resp, err := client.Do(req)
+		if err != nil {
+			statuscode <- 500
+			return
+		}
 		statuscode <- resp.StatusCode
 	}
 }
@@ -95,7 +111,11 @@ func countCalls(c chan int, success *int, failure *int ) {
 	}
 }
 
+func genTarget(protocol string, target string, port string) string {
+	return protocol + "://" + target + ":" + port
+}
 func printInfos(successful int, failed int) {
+	CallClear()
 	fmt.Printf("successful: %d\n", successful)
 	fmt.Printf("failed: %d\n", failed)
 }
