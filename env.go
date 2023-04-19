@@ -8,7 +8,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// WOW much cool name return types
+
 func (b *burster)initFromEnv() (err error) {
 	var e string
 	err = godotenv.Load(".env")
@@ -42,7 +42,7 @@ func (b *burster)initFromEnv() (err error) {
 		b.rpt, _ = strconv.Atoi(e)
 	} else {
 		b.rpt = 100
-		log("no requests per trhead given, default is 10")
+		log("no requests per thread given, default is 10")
 	}
 	
 	return
